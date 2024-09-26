@@ -3,45 +3,94 @@ const signupModel = require("../model/userMode");
 const { log } = require("console");
 const saltRounds = 10;
 // Sign Up
-const signupData = (req, resp) => {
+const signupData = async (req, resp) => {
   try {
     const { fname, email, password } = req.body;
 
-    if (!email) return resp.send("invalid data");
-    else {
-      const salt = bcrypt.genSaltSync(saltRounds);
-      console.log(salt);
+    if (!email) return resp.send("Invalid data");
 
-      const hash = bcrypt.hashSync(password, salt);
-      const data = new signupModel({
-        fname: fname,
-        email: email,
-        password: hash,
-      });
-      data.save();
-
-      resp.send({
-        status: 200,
-        message: "data save sucessfully",
-        data: data,
+    // Check for multiple email existence
+    const match = await signupModel.findOne({ email: email });
+    if (match) {
+      return resp.send({
+        status: 404,
+        message: "Email Already Exists",
       });
     }
+
+    // Check for password length
+    if (password.length < 6) {
+      return resp.send({
+        status: 404,
+        message: "Password must be greater than 6 characters",
+      });
+    }
+
+    // Define the patterns for password requirements
+    const lowercasePattern = /[a-z]/;
+    const uppercasePattern = /[A-Z]/;
+    const numberPattern = /\d/;
+    const specialCharPattern = /[\W_]/;
+
+    // Check password for each requirement
+    if (!lowercasePattern.test(password)) {
+      return resp.send({
+        status: 404,
+        message: "Password must contain at least one lowercase letter",
+      });
+    } else if (!uppercasePattern.test(password)) {
+      return resp.send({
+        status: 404,
+        message: "Password must contain at least one uppercase letter",
+      });
+    } else if (!numberPattern.test(password)) {
+      return resp.send({
+        status: 404,
+        message: "Password must contain at least one number",
+      });
+    } else if (!specialCharPattern.test(password)) {
+      return resp.send({
+        status: 404,
+        message: "Password must contain at least one special character",
+      });
+    }
+
+    // If all checks pass, hash the password
+    const salt = bcrypt.genSaltSync(saltRounds);
+    const hash = bcrypt.hashSync(password, salt);
+
+    // Save the new user data
+    const data = new signupModel({
+      fname: fname,
+      email: email,
+      password: hash,
+    });
+
+    await data.save();
+
+    resp.send({
+      status: 200,
+      message: "Data saved successfully",
+      data: data,
+    });
   } catch (error) {
     resp.send({
-      message: "error",
+      message: "Error",
       err: error,
     });
   }
 };
+
+module.exports = signupData;
+
 // Login
-const loginData = async(req, res) => {
+const loginData = async (req, res) => {
   try {
-    const {email,password} = req.body;
-    const userdata = await signupModel.findOne({email:email})
+    const { email, password } = req.body;
+    const userdata = await signupModel.findOne({ email: email });
     console.log(userdata);
 
-    if(!userdata)return res.send("User not exist")
-    
+    if (!userdata) return res.send("User not exist");
   } catch (error) {
     res.send({
       message: "error",
@@ -74,7 +123,7 @@ const updateData = async (req, resp) => {
     });
   }
 };
-// Delete 
+// Delete
 const deleteData = async (req, resp) => {
   try {
     const data = await signupModel.findByIdAndDelete({ _id: req.params.id });
@@ -108,4 +157,4 @@ const getData = async (req, resp) => {
   }
 };
 
-module.exports = { signupData, updateData, deleteData, getData,loginData };
+module.exports = { signupData, updateData, deleteData, getData, loginData };
