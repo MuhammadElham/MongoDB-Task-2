@@ -2,6 +2,21 @@ const bcrypt = require("bcrypt");
 const signupModel = require("../model/userMode");
 const { log } = require("console");
 const saltRounds = 10;
+
+// Autherization Token
+const secKey = "Elham123";
+const authToken = (req, res, next) => {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader.split(" ")[1];
+  if (!token) return res.send("Access Denied!");
+  console.log("Token", token);
+  jwt.verify(token, secKey, (err, data) => {
+    if (err) return res.send({ error: err });
+    req.user = data;
+    next();
+  });
+};
+
 // Sign Up
 const signupData = async (req, resp) => {
   try {
@@ -66,12 +81,12 @@ const signupData = async (req, resp) => {
       password: hash,
     });
 
-    await data.save();
+    const result = await data.save();
 
     resp.send({
       status: 200,
       message: "Data saved successfully",
-      data: data,
+      data: result,
     });
   } catch (error) {
     resp.send({
@@ -88,10 +103,22 @@ const loginData = async (req, res) => {
   try {
     const { email, password } = req.body;
     const userdata = await signupModel.findOne({ email: email });
-    console.log(userdata);
-
     if (!userdata) return res.send("User not exist");
-  } catch (error) {
+    // Poora data lakr deraha hein
+    console.log(userdata);
+    const match = bcrypt.compare(password, userdata.password);
+    if (!match) return res.send({ message: "Password not Match" });
+    const userData = { id: user._id, name: user.fname };
+jwt.sign(userData,secKey,{expiresIn : '1m'},(err,token)=>{
+  if(err) return res.send({err:err})
+    res.send({
+  status:200,
+  message:"Login Success",
+  data:userdata,
+  token:token
+})
+  
+)} catch (error) {
     res.send({
       message: "error",
       err: error,
